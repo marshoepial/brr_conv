@@ -1,24 +1,31 @@
 [package]
-name = "brrConv"
+name = "brr_conv"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "brrConvLib"
-path = "src/lib.rs"
+name = "brr_conv_lib"
+path = "src/lib/lib.rs"
 
 [[bin]]
-name = "brrConvBin"
+name = "brr_conv"
 path = "src/main.rs"
+
+[[bin]]
+name = "brr_play"
+path = "play/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 
 anyhow = "1.0.51"
+clap = "2.34.0"
+cpal = "0.13.4"
 hound = "3.4.0"
 indicatif = "0.16.2"
 nibble_vec = "0.1.0"
+plotters = "0.3.1"
 
 [dev-dependencies]
 

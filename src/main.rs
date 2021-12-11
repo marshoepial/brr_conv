@@ -2,7 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 
-use brrConvLib::convert;
+use brr_conv_lib::convert;
 
 fn main() -> Result<()> {
     println!("BRR Conversion Tool");

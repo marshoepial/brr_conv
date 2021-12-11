@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use brrConvLib::convert;
+use brr_conv_lib::convert;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 pub fn conv_benchmark(c: &mut Criterion) {

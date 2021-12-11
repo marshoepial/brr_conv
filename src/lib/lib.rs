@@ -1,3 +1,5 @@
+pub mod brr;
+
 use std::{collections::HashMap, fs::File, io::Write, path::Path};
 
 use anyhow::Result;
@@ -61,49 +63,91 @@ fn get_next_nibbles<T: Iterator<Item = Result<i16, hound::Error>>>(
     if samples.is_empty() {
         return (Vec::new(), Vec::new());
     }
-
-    let mut left_counts = HashMap::new();
-    let mut right_counts = HashMap::new();
-    let left_opt_shift = samples
+        
+    let left_shifts: Vec<u32> = samples
         .iter()
         .step_by(2)
         .map(calc_shift)
-        .max_by_key(|&shift| {
+        .collect();
+    let right_shifts: Vec<u32> = samples
+        .iter()
+        .skip(1)
+        .step_by(2)
+        .map(calc_shift)
+        .collect();
+        
+    let mut left_counts = HashMap::new();
+    let left_opt_shift = left_shifts.iter() 
+        .max_by_key(|&&shift| {
             let count = left_counts.entry(shift).or_insert(0);
             *count += 1;
             *count
         })
-        .unwrap();
-    let right_opt_shift = samples
-        .iter()
-        .step_by(2)
-        .map(calc_shift)
-        .max_by_key(|&shift| {
+        .unwrap();    
+    let mut right_counts = HashMap::new();
+    let right_opt_shift = right_shifts.iter() 
+        .max_by_key(|&&shift| {
             let count = right_counts.entry(shift).or_insert(0);
             *count += 1;
             *count
         })
         .unwrap();
+    
 
     // Nibble vecs let us store sets of nibbles safely, and then convert them to u8 sets when done
     let mut left_nibbles = Nibblet::new();
     let mut right_nibbles = Nibblet::new();
 
-    let mut on_left = true;
-    for sample in &samples {
-        if on_left {
-            left_nibbles.push((sample >> left_opt_shift) as u8);
+    for i in 0..samples.len() {
+        if i % 2 == 0 {
+            left_nibbles.push(match left_shifts[i/2].cmp(left_opt_shift) {
+                std::cmp::Ordering::Greater => {
+                    if samples[i] > 0 {
+                        0b00000111
+                    } else {
+                        0b00001000
+                    }
+                },
+                std::cmp::Ordering::Equal => (samples[i] >> left_opt_shift) as u8,
+                std::cmp::Ordering::Less => {
+                    if (1 << left_opt_shift) - samples[i].abs() > samples[i].abs() {
+                        0
+                    } else if samples[i] < 0 {
+                        0b00001111
+                    } else {
+                        1
+                    }
+                }
+            });
         } else {
-            right_nibbles.push((sample >> right_opt_shift) as u8);
+            right_nibbles.push(match right_shifts[i/2].cmp(right_opt_shift) {
+                // shifting a number that doesn't fit into the nibble right can cause unpredictable results
+                // give the maximum instead
+                std::cmp::Ordering::Greater => {
+                    if samples[i] > 0 {
+                        0b00000111
+                    } else {
+                        0b00001000
+                    }
+                },
+                std::cmp::Ordering::Equal => (samples[i] >> right_opt_shift) as u8,
+                std::cmp::Ordering::Less => {
+                    if (1 << right_opt_shift) - samples[i].abs() > samples[i].abs() {
+                        0
+                    } else if samples[i] < 0 {
+                        0b00001111
+                    } else {
+                        1
+                    }
+                }
+            });
         }
-
-        on_left = !on_left;
     }
 
-    let mut left_brr_samples = vec![(left_opt_shift as u8) << 4];
+    let mut left_brr_samples = vec![(*left_opt_shift as u8) << 4];
     left_brr_samples.append(&mut left_nibbles.into_bytes());
 
-    let mut right_brr_samples = vec![(right_opt_shift as u8) << 4];
+    let mut right_brr_samples = vec![(*right_opt_shift as u8) << 4];
     right_brr_samples.append(&mut right_nibbles.into_bytes());
 
     (left_brr_samples, right_brr_samples)
