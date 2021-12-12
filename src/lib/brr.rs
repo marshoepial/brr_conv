@@ -3,13 +3,18 @@ use std::collections::VecDeque;
 pub struct BrrIterator<T: Iterator<Item = u8>> {
     iter: T,
     buffer: VecDeque<i16>,
+    scalar: u8,
 }
 
 impl<T> BrrIterator<T> 
     where T: Iterator<Item = u8>
 {
     pub fn new(iter: T) -> BrrIterator<T> {
-        BrrIterator { iter, buffer: VecDeque::new() }
+        BrrIterator { iter, buffer: VecDeque::new(), scalar: 0 }
+    }
+
+    pub fn get_scalar(&self) -> u8 {
+        self.scalar
     }
 }
 
@@ -27,8 +32,8 @@ impl<T> Iterator for BrrIterator<T>
             };
 
             // 4 MSBs of "header" byte are the scalar to shift the BRR by
-            let scalar = header >> 4;
-            for i in 0..8 {
+            self.scalar = header >> 4;
+            for _i in 0..8 {
                 let byte = match self.iter.next() {
                     Some(b) => b,
                     None => break,
@@ -37,8 +42,8 @@ impl<T> Iterator for BrrIterator<T>
                 let top = (byte & 0b11110000) >> 4;
                 let bottom = byte & 0b00001111;
 
-                self.buffer.push_front(convert_with_sign(top, scalar));
-                self.buffer.push_front(convert_with_sign(bottom, scalar));
+                self.buffer.push_front(convert_with_sign(top, self.scalar));
+                self.buffer.push_front(convert_with_sign(bottom, self.scalar));
             }
         }
 
@@ -46,23 +51,15 @@ impl<T> Iterator for BrrIterator<T>
     }
 }
 
-fn convert_with_sign(mut nib: u8, scalar: u8) -> i16 {
-    // Test if msb of nibble is set.
-    let negative = (nib | 0b11110111) == 0xFF;
+#[allow(overflowing_literals)]
+fn convert_with_sign(nib: u8, scalar: u8) -> i16 {
+    let mut signed = nib as i8;
 
-    if negative {
-        // get complement
-        nib = !nib;
-        // zero out upper four bits
-        nib = nib & 0b00001111
+    // if the nibble is negative (msb is set)
+    if (signed & 0b00001000) != 0 {
+        // make the entire number negative
+        signed |= 0b11110000;
     }
 
-    let mut shifted = (nib as i16) << scalar;
-
-    if negative {
-        // set the complement back
-        shifted = !shifted;
-    }
-
-    shifted >> 1
+    (signed as i16) * 2i16.pow(scalar as u32 - 1)
 }

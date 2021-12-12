@@ -1,5 +1,7 @@
 mod plot;
 
+use plot::plot;
+
 use std::{fs::File, io::{BufReader, Read}};
 
 use anyhow::Result;
@@ -18,13 +20,14 @@ fn main() -> Result<()> {
         ).subcommand(SubCommand::with_name("plot")
             .about("plots the waveform of the original and generated file, highlighting differences. Mostly for testing")
             .args_from_usage("-o --original <FILE> 'Original wav file'
-                            -b --brr <FIILE> 'Brr file to plot'")
+                            -b --brr <FIILE> 'Brr file to plot'
+                            -s --skip [skip] 'Frames to skip'")
                         )
         .get_matches();
     
     match args.subcommand() {
         ("play", Some(sub_m)) => play(sub_m.value_of("left").expect("File needed for left channel"), sub_m.value_of("right").expect("File needed for right channel"))?,
-        ("plot", Some(sub_m)) => {},
+        ("plot", Some(sub_m)) => plot(sub_m.value_of("original").expect("Original wav needed"), sub_m.value_of("brr").expect("Brr file needed"), sub_m.value_of("skip").map(|s| s.parse::<usize>().expect("Could not parse skip value")).unwrap_or_default())?,
         _ => panic!("Subcommand needed"),
     };
 

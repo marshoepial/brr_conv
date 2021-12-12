@@ -29,8 +29,6 @@ pub fn convert(in_file: &Path, output: bool) -> Result<()> {
         progress = ProgressBar::hidden();
     }
 
-    let mut iteration = 0;
-    let mut samples = 0;
     loop {
         // println!("Loop {}, samples {}-{} out of {}", iteration, samples, samples_len.min(samples+32), &samples_len);
 
@@ -44,8 +42,6 @@ pub fn convert(in_file: &Path, output: bool) -> Result<()> {
         right_output.write_all(&brr_chunk.1)?;
 
         progress.inc(32);
-        iteration += 1;
-        samples += 32;
     }
 
     Ok(())
@@ -63,30 +59,25 @@ fn get_next_nibbles<T: Iterator<Item = Result<i16, hound::Error>>>(
     if samples.is_empty() {
         return (Vec::new(), Vec::new());
     }
-        
-    let left_shifts: Vec<u32> = samples
-        .iter()
-        .step_by(2)
-        .map(calc_shift)
-        .collect();
-    let right_shifts: Vec<u32> = samples
-        .iter()
-        .skip(1)
-        .step_by(2)
-        .map(calc_shift)
-        .collect();
-        
+
     let mut left_counts = HashMap::new();
-    let left_opt_shift = left_shifts.iter() 
-        .max_by_key(|&&shift| {
+    let left_opt_shift = samples
+        .iter()
+        .step_by(2)
+        .map(calc_shift) 
+        .max_by_key(|&shift| {
             let count = left_counts.entry(shift).or_insert(0);
             *count += 1;
             *count
         })
         .unwrap();    
     let mut right_counts = HashMap::new();
-    let right_opt_shift = right_shifts.iter() 
-        .max_by_key(|&&shift| {
+    let right_opt_shift = samples
+        .iter()
+        .skip(1)
+        .step_by(2)
+        .map(calc_shift) 
+        .max_by_key(|&shift| {
             let count = right_counts.entry(shift).or_insert(0);
             *count += 1;
             *count
@@ -100,54 +91,16 @@ fn get_next_nibbles<T: Iterator<Item = Result<i16, hound::Error>>>(
 
     for i in 0..samples.len() {
         if i % 2 == 0 {
-            left_nibbles.push(match left_shifts[i/2].cmp(left_opt_shift) {
-                std::cmp::Ordering::Greater => {
-                    if samples[i] > 0 {
-                        0b00000111
-                    } else {
-                        0b00001000
-                    }
-                },
-                std::cmp::Ordering::Equal => (samples[i] >> left_opt_shift) as u8,
-                std::cmp::Ordering::Less => {
-                    if (1 << left_opt_shift) - samples[i].abs() > samples[i].abs() {
-                        0
-                    } else if samples[i] < 0 {
-                        0b00001111
-                    } else {
-                        1
-                    }
-                }
-            });
+            left_nibbles.push(((samples[i] as f32 / 2f32.powf(left_opt_shift as f32 - 1.0)).round() as i8).clamp(-8, 7) as u8);
         } else {
-            right_nibbles.push(match right_shifts[i/2].cmp(right_opt_shift) {
-                // shifting a number that doesn't fit into the nibble right can cause unpredictable results
-                // give the maximum instead
-                std::cmp::Ordering::Greater => {
-                    if samples[i] > 0 {
-                        0b00000111
-                    } else {
-                        0b00001000
-                    }
-                },
-                std::cmp::Ordering::Equal => (samples[i] >> right_opt_shift) as u8,
-                std::cmp::Ordering::Less => {
-                    if (1 << right_opt_shift) - samples[i].abs() > samples[i].abs() {
-                        0
-                    } else if samples[i] < 0 {
-                        0b00001111
-                    } else {
-                        1
-                    }
-                }
-            });
+            right_nibbles.push(((samples[i] as f32 / 2f32.powf(right_opt_shift as f32 - 1.0)).round() as i8).clamp(-8, 7) as u8);
         }
     }
 
-    let mut left_brr_samples = vec![(*left_opt_shift as u8) << 4];
+    let mut left_brr_samples = vec![(left_opt_shift as u8) << 4];
     left_brr_samples.append(&mut left_nibbles.into_bytes());
 
-    let mut right_brr_samples = vec![(*right_opt_shift as u8) << 4];
+    let mut right_brr_samples = vec![(right_opt_shift as u8) << 4];
     right_brr_samples.append(&mut right_nibbles.into_bytes());
 
     (left_brr_samples, right_brr_samples)
@@ -162,5 +115,5 @@ fn calc_shift(sample: &i16) -> u32 {
 
     // Get number of leading zeroes so top 3 MSBs are preserved
     let zeroes = shifted_sample.leading_zeros().min(13);
-    13 - zeroes
+    14 - zeroes
 }
