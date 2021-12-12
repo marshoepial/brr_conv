@@ -64,36 +64,41 @@ fn get_next_nibbles<T: Iterator<Item = Result<i16, hound::Error>>>(
     let left_opt_shift = samples
         .iter()
         .step_by(2)
-        .map(calc_shift) 
+        .map(calc_shift)
         .max_by_key(|&shift| {
             let count = left_counts.entry(shift).or_insert(0);
             *count += 1;
             *count
         })
-        .unwrap();    
+        .unwrap();
     let mut right_counts = HashMap::new();
     let right_opt_shift = samples
         .iter()
         .skip(1)
         .step_by(2)
-        .map(calc_shift) 
+        .map(calc_shift)
         .max_by_key(|&shift| {
             let count = right_counts.entry(shift).or_insert(0);
             *count += 1;
             *count
         })
         .unwrap();
-    
 
     // Nibble vecs let us store sets of nibbles safely, and then convert them to u8 sets when done
     let mut left_nibbles = Nibblet::new();
     let mut right_nibbles = Nibblet::new();
 
-    for i in 0..samples.len() {
+    for (i, sample) in samples.iter().enumerate() {
         if i % 2 == 0 {
-            left_nibbles.push(((samples[i] as f32 / 2f32.powf(left_opt_shift as f32 - 1.0)).round() as i8).clamp(-8, 7) as u8);
+            left_nibbles.push(
+                ((*sample as f32 / 2f32.powf(left_opt_shift as f32 - 1.0)).round() as i8)
+                    .clamp(-8, 7) as u8,
+            );
         } else {
-            right_nibbles.push(((samples[i] as f32 / 2f32.powf(right_opt_shift as f32 - 1.0)).round() as i8).clamp(-8, 7) as u8);
+            right_nibbles.push(
+                ((*sample as f32 / 2f32.powf(right_opt_shift as f32 - 1.0)).round() as i8)
+                    .clamp(-8, 7) as u8,
+            );
         }
     }
 

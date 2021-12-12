@@ -15,7 +15,10 @@ fn main() -> Result<()> {
         .args_from_usage("-i --in <FILE> 'file to be converted'")
         .get_matches();
 
-    convert(Path::new(args.value_of("in").expect("Must have input file")), true)?;
+    convert(
+        Path::new(args.value_of("in").expect("Must have input file")),
+        true,
+    )?;
 
     Ok(())
 }

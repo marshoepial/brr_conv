@@ -6,11 +6,16 @@ pub struct BrrIterator<T: Iterator<Item = u8>> {
     scalar: u8,
 }
 
-impl<T> BrrIterator<T> 
-    where T: Iterator<Item = u8>
+impl<T> BrrIterator<T>
+where
+    T: Iterator<Item = u8>,
 {
     pub fn new(iter: T) -> BrrIterator<T> {
-        BrrIterator { iter, buffer: VecDeque::new(), scalar: 0 }
+        BrrIterator {
+            iter,
+            buffer: VecDeque::new(),
+            scalar: 0,
+        }
     }
 
     pub fn get_scalar(&self) -> u8 {
@@ -19,8 +24,8 @@ impl<T> BrrIterator<T>
 }
 
 impl<T> Iterator for BrrIterator<T>
-    where 
-        T: Iterator<Item = u8> 
+where
+    T: Iterator<Item = u8>,
 {
     type Item = i16;
 
@@ -43,7 +48,8 @@ impl<T> Iterator for BrrIterator<T>
                 let bottom = byte & 0b00001111;
 
                 self.buffer.push_front(convert_with_sign(top, self.scalar));
-                self.buffer.push_front(convert_with_sign(bottom, self.scalar));
+                self.buffer
+                    .push_front(convert_with_sign(bottom, self.scalar));
             }
         }
 
